@@ -113,7 +113,7 @@ CẤU TRÚC ĐẦU RA - LINH HOẠT VỚI CẤU TRÚC GIÁO ÁN:
 
 1. Phần mục tiêu luôn dùng:
 ===NLS_MỤC_TIÊU===
-<red>4. Năng lực số:</red>
+<red>Năng lực số:</red>
 <red>- Nội dung năng lực số phù hợp</red>
 ===END===
 
@@ -247,7 +247,7 @@ OUTPUT STRUCTURE - FLEXIBLE WITH LESSON PLAN STRUCTURE:
 
 1. For objectives section, always use:
 ===DC_OBJECTIVES===
-<red>4. Digital Competence:</red>
+<red>Digital Competence:</red>
 <red>- Relevant digital competence content</red>
 ===END===
 

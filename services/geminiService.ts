@@ -183,9 +183,44 @@ export const generateNLSLessonPlan = async (
 
   const ai = new GoogleGenAI({ apiKey: apiKey });
 
+  // Determine if the subject is English to use English instructions
+  const isEnglishSubject = info.subject === Subject.ANH;
+
   let distributionContext = "";
   if (info.distributionContent && info.distributionContent.trim().length > 0) {
-    distributionContext = `
+    if (isEnglishSubject) {
+      distributionContext = `
+      =========================================================
+      🚨 STRICT MODE RULE (WHEN PPCT IS PROVIDED):
+      The user HAS PROVIDED the Curriculum Distribution (PPCT) content.
+      This is a mandatory document, you MUST ABSOLUTELY follow these requirements:
+
+      STEP 1: Read the lesson name in the "ORIGINAL LESSON PLAN CONTENT".
+      STEP 2: Find the EXACT ROW of that lesson in the PPCT table.
+      STEP 3: Extract EXACTLY the content from the "Digital Competence" column of that row.
+      STEP 4: Put the extracted content into the Digital Competence Objectives section - KEEPING THE CODES AND CONTENT INTACT.
+
+      📋 EXAMPLE OF CORRECT EXTRACTION:
+      If the PPCT has:
+      | Lesson 17 | ... | 1.1NC1a: Search information. 3.4NC1a: Use calculator |
+      
+      Then the Objective section must state EXACTLY:
+      <red>Digital Competence (Content extracted exactly from PPCT):</red>
+      <red>- 1.1NC1a: Search information.</red>
+      <red>- 3.4NC1a: Use calculator.</red>
+      
+      ⛔️ STRICTLY PROHIBITED:
+      - ABSOLUTELY DO NOT add any other digital competencies not found in this lesson's PPCT.
+      - DO NOT change codes or content.
+      - DO NOT use the Digital Competence Framework to make up objectives. ONLY use what is written in PPCT.
+      - If the digital competence column is empty in PPCT, write: "None (according to PPCT)".
+
+      PPCT CONTENT:
+      ${info.distributionContent}
+      =========================================================
+      `;
+    } else {
+      distributionContext = `
       =========================================================
       🚨 QUY TẮC TỐI THƯỢNG (KHI CÓ PPCT - STRICT MODE):
       Người dùng ĐÃ CUNG CẤP nội dung Phân phối chương trình (PPCT).
@@ -201,7 +236,7 @@ export const generateNLSLessonPlan = async (
       | Bài 17 | ... | 1.1NC1a: Tìm kiếm thông tin, quy tắc. 3.4NC1a: Sử dụng MTCT để giải |
       
       Thì phần Mục tiêu phải ghi NGUYÊN VĂN:
-      <red>4. Năng lực số (Nội dung trích xuất nguyên văn từ PPCT):</red>
+      <red>Năng lực số (Nội dung trích xuất nguyên văn từ PPCT):</red>
       <red>- 1.1NC1a: Tìm kiếm thông tin, quy tắc.</red>
       <red>- 3.4NC1a: Sử dụng MTCT để giải.</red>
       
@@ -215,10 +250,8 @@ export const generateNLSLessonPlan = async (
       ${info.distributionContent}
       =========================================================
       `;
+    }
   }
-
-  // Determine if the subject is English to use English instructions
-  const isEnglishSubject = info.subject === Subject.ANH;
 
   // Select appropriate framework and instructions based on subject
   const frameworkData = isEnglishSubject ? NLS_FRAMEWORK_DATA_ENGLISH : NLS_FRAMEWORK_DATA;

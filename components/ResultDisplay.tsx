@@ -19,7 +19,7 @@ import {
 import FileSaver from 'file-saver';
 import JSZip from 'jszip';
 import { OriginalDocxFile } from '../types';
-import html2pdf from 'html2pdf.js';
+
 import { useAuthStore } from '../store/authStore';
 import { MockDB } from '../services/mockDb';
 
@@ -574,24 +574,7 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, original
     }
   };
 
-  const handleDownloadPdf = () => {
-    if (!result) return;
-    const element = document.getElementById('preview-content');
-    if (!element) {
-      alert("Vui lòng mở 'Xem trước nội dung' trước khi tải PDF.");
-      setShowPreview(true);
-      return;
-    }
-    const opt = {
-      margin:       1,
-      filename:     'Giao_an_NLS.pdf',
-      image:        { type: 'jpeg', quality: 0.98 },
-      html2canvas:  { scale: 2 },
-      jsPDF:        { unit: 'in', format: 'a4', orientation: 'portrait' }
-    };
-    html2pdf().set(opt).from(element).save();
-    if (user) MockDB.addLog(user.id, 'download_file', 'Tải file PDF');
-  };
+
 
   const handleDownloadTxt = () => {
     if (!result) return;
@@ -620,46 +603,22 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, original
   // Đếm số section NLS
   const sections = parseAllNLSSections(result);
 
-  // Hiển thị nội dung preview - hỗ trợ tất cả các markers linh hoạt (Vietnamese + English)
+  // Hiển thị nội dung preview - mô phỏng đúng cách trình bày trong file DOCX:
+  // Các marker được xóa, nội dung NLS được hiển thị inline ngay tại vị trí đó với màu đỏ
   const getCleanResultForPreview = (content: string): string => {
+    // Xóa tất cả các markers (===...===), chỉ giữ lại nội dung bên trong các block
+    // Nội dung <red>...</red> sẽ được giữ nguyên để ReactMarkdown render thành chữ đỏ
     return content
-      // ================== VIETNAMESE NLS MARKERS ==================
-      .replace(/===NLS_MỤC_TIÊU===/g, '\n**📌 MỤC TIÊU NĂNG LỰC SỐ:**\n')
-      // Markers với VỊ_TRÍ đầy đủ: HOẠT_ĐỘNG_X_VỊ_TRÍ
-      .replace(/===NLS_HOẠT_ĐỘNG_(\d+)_NỘI_DUNG===/g, '\n**📌 HOẠT ĐỘNG $1 - NỘI DUNG NLS:**\n')
-      .replace(/===NLS_HOẠT_ĐỘNG_(\d+)_SẢN_PHẨM===/g, '\n**📌 HOẠT ĐỘNG $1 - SẢN PHẨM NLS:**\n')
-      .replace(/===NLS_HOẠT_ĐỘNG_(\d+)_TỔ_CHỨC===/g, '\n**📌 HOẠT ĐỘNG $1 - TỔ CHỨC NLS:**\n')
-      .replace(/===NLS_HOẠT_ĐỘNG_(\d+)_MỤC_TIÊU_HĐ===/g, '\n**📌 HOẠT ĐỘNG $1 - MỤC TIÊU NLS:**\n')
-      .replace(/===NLS_HOẠT_ĐỘNG_(\d+)_BƯỚC_(\d+)===/g, '\n**📌 HOẠT ĐỘNG $1 - BƯỚC $2 NLS:**\n')
-      .replace(/===NLS_HOẠT_ĐỘNG_(\d+)_KẾT_LUẬN===/g, '\n**📌 HOẠT ĐỘNG $1 - KẾT LUẬN NLS:**\n')
-      // Fallback cho markers đơn giản: HOẠT_ĐỘNG_X
-      .replace(/===NLS_HOẠT_ĐỘNG_(\d+)===/g, '\n**📌 HOẠT ĐỘNG $1 - NLS:**\n')
-      .replace(/===NLS_CỦNG_CỐ===/g, '\n**📌 CỦNG CỐ - TÍCH HỢP NLS:**\n')
-
-      // ================== ENGLISH DC MARKERS ==================
-      .replace(/===DC_OBJECTIVES===/g, '\n**📌 DIGITAL COMPETENCE OBJECTIVES:**\n')
-      // WARM UP markers
-      .replace(/===DC_WARM_UP_ORGANIZATION===/g, '\n**📌 WARM UP - DC ORGANIZATION:**\n')
-      .replace(/===DC_WARM_UP_CONTENT===/g, '\n**📌 WARM UP - DC CONTENT:**\n')
-      .replace(/===DC_WARM_UP_OUTCOMES===/g, '\n**📌 WARM UP - DC OUTCOMES:**\n')
-      .replace(/===DC_WARM_UP_OBJECTIVE===/g, '\n**📌 WARM UP - DC OBJECTIVE:**\n')
-      .replace(/===DC_WARM_UP===/g, '\n**📌 WARM UP - DC:**\n')
-      // ACTIVITY markers với POSITION đầy đủ
-      .replace(/===DC_ACTIVITY_(\d+)_CONTENT===/g, '\n**📌 ACTIVITY $1 - DC CONTENT:**\n')
-      .replace(/===DC_ACTIVITY_(\d+)_OUTCOMES===/g, '\n**📌 ACTIVITY $1 - DC OUTCOMES:**\n')
-      .replace(/===DC_ACTIVITY_(\d+)_ORGANIZATION===/g, '\n**📌 ACTIVITY $1 - DC ORGANIZATION:**\n')
-      .replace(/===DC_ACTIVITY_(\d+)_OBJECTIVE===/g, '\n**📌 ACTIVITY $1 - DC OBJECTIVE:**\n')
-      .replace(/===DC_ACTIVITY_(\d+)_TEACHER_ACTIVITIES===/g, '\n**📌 ACTIVITY $1 - TEACHER DC:**\n')
-      .replace(/===DC_ACTIVITY_(\d+)_STUDENT_ACTIVITIES===/g, '\n**📌 ACTIVITY $1 - STUDENT DC:**\n')
-      // Fallback cho ACTIVITY_X đơn giản
-      .replace(/===DC_ACTIVITY_(\d+)===/g, '\n**📌 ACTIVITY $1 - DC:**\n')
-      // CONSOLIDATION markers
-      .replace(/===DC_CONSOLIDATION_ORGANIZATION===/g, '\n**📌 CONSOLIDATION - DC:**\n')
-      .replace(/===DC_CONSOLIDATION===/g, '\n**📌 CONSOLIDATION - DC:**\n')
-      // HOMEWORK markers
-      .replace(/===DC_HOMEWORK===/g, '\n**📌 HOMEWORK - DC:**\n')
-
-      .replace(/===END===/g, '\n---\n');
+      // Xóa tất cả markers mở (Vietnamese)
+      .replace(/===NLS_[^=]+=== */g, '')
+      // Xóa tất cả markers mở (English)
+      .replace(/===DC_[^=]+=== */g, '')
+      // Xóa marker kết thúc ===END===
+      .replace(/===END===/g, '')
+      // Xóa các dòng chỉ có dấu === còn sót lại
+      .replace(/^===.*===$/gm, '')
+      // Dọn dẹp các dòng trống thừa (>2 dòng trống liên tiếp → 1 dòng trống)
+      .replace(/\n{3,}/g, '\n\n');
   };
 
   return (
@@ -688,27 +647,20 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, original
           </p>
         </div>
 
-        <div className="flex flex-col sm:flex-row gap-4 mt-6 w-full max-w-md">
+        <div className="flex flex-col sm:flex-row gap-4 mt-6 w-full max-w-sm">
           <button
             onClick={generateDocx}
             disabled={isGeneratingDoc}
-            className="flex-1 flex items-center justify-center space-x-2 px-6 py-4 bg-blue-600 text-white rounded-xl text-lg font-bold hover:bg-blue-700 transition-all shadow-md transform hover:-translate-y-1"
+            className="flex-1 flex items-center justify-center space-x-2 px-8 py-4 bg-blue-600 text-white rounded-xl text-lg font-bold hover:bg-blue-700 transition-all shadow-md transform hover:-translate-y-1"
           >
             {isGeneratingDoc ? (
               <span className="animate-pulse">Đang tạo...</span>
             ) : (
               <>
                 <Download size={24} />
-                <span>Tải DOCX</span>
+                <span>Tải về DOCX</span>
               </>
             )}
-          </button>
-          <button
-            onClick={handleDownloadPdf}
-            className="flex-1 flex items-center justify-center space-x-2 px-6 py-4 bg-red-600 text-white rounded-xl text-lg font-bold hover:bg-red-700 transition-all shadow-md transform hover:-translate-y-1"
-          >
-            <Download size={24} />
-            <span>Tải PDF</span>
           </button>
         </div>
 
