@@ -352,37 +352,68 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, original
       .replace(/'/g, '&apos;');
   };
 
-  // Trích xuất pPr (paragraph properties) từ một đoạn XML paragraph
-  // Dùng để kế thừa font, cỡ chữ, indent từ đoạn văn gốc
-  const extractPPr = (paragraphXml: string): string => {
-    const match = paragraphXml.match(/<w:pPr>[\s\S]*?<\/w:pPr>/);
-    return match ? match[0] : '';
+  // ─── HELPERS TẠO XML NLS (Times New Roman, đỏ, không đậm, first-line indent) ───
+
+  // Trích xuất cỡ chữ (w:sz) từ paragraph gốc để kế thừa
+  // Trả về giá trị half-points (ví dụ: "26" = 13pt, "28" = 14pt)
+  const extractFontSizeFromParagraph = (paragraphXml: string): string => {
+    // Tìm w:sz trong rPr (ưu tiên) hoặc trong pPr/rPr mặc định của style
+    const szMatch = paragraphXml.match(/<w:sz w:val="(\d+)"/);
+    if (szMatch) return szMatch[1];
+    // Fallback: 26 half-points = 13pt (cỡ phổ biến trong giáo án)
+    return '26';
   };
 
-  // Trích xuất rPr (run properties: font, size) từ một đoạn XML paragraph
-  // Bỏ qua các thuộc tính màu sắc vì ta sẽ đặt màu đỏ
-  const extractRPrForNls = (paragraphXml: string): string => {
-    // Lấy rPr từ run đầu tiên trong paragraph
-    const rPrMatch = paragraphXml.match(/<w:rPr>([\s\S]*?)<\/w:rPr>/);
-    if (!rPrMatch) return '';
-    let rPrContent = rPrMatch[1];
-    // Loại bỏ các thuộc tính màu cũ để ta đặt màu đỏ (regex linh hoạt hơn)
-    rPrContent = rPrContent.replace(/<w:color\s[^>]*\/>/g, '');
-    rPrContent = rPrContent.replace(/<w:highlight\s[^>]*\/>/g, '');
-    // Thêm màu đỏ vào đầu
-    rPrContent = `<w:color w:val="FF0000"/>${rPrContent}`;
-    return `<w:rPr>${rPrContent}</w:rPr>`;
+  // Trích xuất dãn dòng (w:spacing) từ paragraph gốc để kế thừa
+  const extractSpacingFromParagraph = (paragraphXml: string): string => {
+    const spacingMatch = paragraphXml.match(/<w:spacing\s[^>]*\/>/);
+    return spacingMatch ? spacingMatch[0] : '';
   };
 
-  // Chuyển Markdown sang Word XML - MÀU ĐỎ + KẾ THỪA ĐỊNH DẠNG GỐC
-  // pPr: paragraph properties (font, indent, spacing) từ đoạn văn gốc tại vị trí chèn
-  // rPrBase: run properties (font name, size) từ đoạn văn gốc
-  const convertMarkdownToWordXml = (markdown: string, pPr: string = '', rPrBase: string = ''): string => {
+  // Xây dựng rPr cho đoạn NLS:
+  //   - Font: Times New Roman (bắt buộc)
+  //   - Màu : Đỏ FF0000
+  //   - Đậm : TẮT (w:b val="0")
+  //   - Nghiêng: TẮT (w:i val="0")
+  //   - Cỡ chữ: kế thừa từ đoạn gốc (hoặc 13pt nếu không tìm được)
+  const buildNlsRPr = (sourceParagraphXml: string): string => {
+    const fontSize = extractFontSizeFromParagraph(sourceParagraphXml);
+    return [
+      '<w:rPr>',
+      '<w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman" w:cs="Times New Roman"/>',
+      '<w:b w:val="0"/>',
+      '<w:bCs w:val="0"/>',
+      '<w:i w:val="0"/>',
+      '<w:iCs w:val="0"/>',
+      '<w:color w:val="FF0000"/>',
+      `<w:sz w:val="${fontSize}"/>`,
+      `<w:szCs w:val="${fontSize}"/>`,
+      '</w:rPr>',
+    ].join('');
+  };
+
+  // Xây dựng pPr cho đoạn NLS:
+  //   - First-line indent: 720 twips = 1.27 cm (theo chuẩn Word)
+  //   - Dãn dòng (spacing): kế thừa từ đoạn gốc
+  //   - Căn lề: kế thừa từ đoạn gốc (mặc định justify)
+  const buildNlsPPr = (sourceParagraphXml: string): string => {
+    const spacing = extractSpacingFromParagraph(sourceParagraphXml);
+    // Giữ căn lề từ nguồn nếu có
+    const jcMatch = sourceParagraphXml.match(/<w:jc\s[^>]*\/>/);
+    const jc = jcMatch ? jcMatch[0] : '';
+    // First-line indent 1.27cm = 720 twips (1 twip = 1/1440 inch; 1.27cm ≈ 0.5 inch = 720 twips)
+    return `<w:pPr><w:ind w:firstLine="720"/>${spacing}${jc}</w:pPr>`;
+  };
+
+  // Chuyển Markdown NLS sang Word XML
+  // sourceParagraphXml: XML của paragraph gốc tại vị trí chèn (để kế thừa định dạng)
+  const convertMarkdownToWordXml = (markdown: string, sourceParagraphXml: string = ''): string => {
     const lines = markdown.split('\n');
     let xml = '';
 
-    // rPr cho NLS: luôn có màu đỏ + kế thừa font/size từ đoạn gốc
-    const redRPr = rPrBase || '<w:rPr><w:color w:val="FF0000"/></w:rPr>';
+    // Xây dựng pPr và rPr chuẩn cho NLS (kế thừa size + spacing từ đoạn gốc)
+    const nlsPPr = buildNlsPPr(sourceParagraphXml);
+    const nlsRPr = buildNlsRPr(sourceParagraphXml);
 
     for (const line of lines) {
       const trimmed = line.trim();
@@ -405,25 +436,23 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, original
       processedLine = processedLine.replace(/\s*\(\d+\.\d+\.?[A-Za-z]+\d*[a-z]?\)/g, '');
       processedLine = processedLine.replace(/\s*\(\d+\.\d+[A-Za-z]+\d*[a-z]?\)/g, '');
 
-      // Loại bỏ thẻ <u> và </u>
+      // Loại bỏ markdown bold/italic và các thẻ HTML không cần thiết
+      processedLine = processedLine.replace(/\*\*(.*?)\*\*/g, '$1');  // **bold** → text
+      processedLine = processedLine.replace(/\*(.*?)\*/g, '$1');       // *italic* → text
       processedLine = processedLine.replace(/<\/?u>/g, '');
-
-      // Tất cả nội dung NLS đều màu đỏ (kể cả dòng không có thẻ <red>)
       processedLine = processedLine.replace(/<\/?red>/g, '');
       processedLine = processedLine.replace(/<br\s*\/?>/gi, '');
 
       const content = escapeXml(processedLine);
 
-      // Tạo paragraph: pPr (indent/spacing) trong w:p, rPr màu đỏ + font trong w:r
-      // Cấu trúc OOXML đúng: <w:p><w:pPr/><w:r><w:rPr/><w:t/></w:r></w:p>
-      xml += `<w:p>${pPr}<w:r>${redRPr}<w:t xml:space="preserve">${content}</w:t></w:r></w:p>`;
+      // Cấu trúc OOXML: <w:p><w:pPr/><w:r><w:rPr/><w:t/></w:r></w:p>
+      xml += `<w:p>${nlsPPr}<w:r>${nlsRPr}<w:t xml:space="preserve">${content}</w:t></w:r></w:p>`;
     }
 
     return xml;
   };
 
-  // Tìm và chèn nội dung SAU vị trí tìm thấy
-  // Trả về thêm pPr và rPrBase từ paragraph gốc để kế thừa định dạng
+  // Tìm paragraph chứa pattern và chèn nội dung NLS ngay sau
   const findAndInsertAfter = (
     xml: string,
     searchPatterns: string[],
@@ -437,13 +466,8 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, original
 
       const match = xml.match(regex);
       if (match) {
-        // Trích xuất định dạng từ paragraph gốc
-        const pPr = extractPPr(match[0]);
-        const rPrBase = extractRPrForNls(match[0]);
-
-        // Tạo XML NLS với định dạng kế thừa từ paragraph gốc
-        const contentToInsert = convertMarkdownToWordXml(nlsMarkdown, pPr, rPrBase);
-
+        // Truyền XML của paragraph gốc để kế thừa cỡ chữ & dãn dòng
+        const contentToInsert = convertMarkdownToWordXml(nlsMarkdown, match[0]);
         const newXml = xml.replace(match[0], match[0] + contentToInsert);
         return { result: newXml, inserted: true };
       }
