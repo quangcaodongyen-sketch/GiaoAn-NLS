@@ -228,16 +228,10 @@ const AppMain: React.FC = () => {
       </main>
 
       <footer className="mt-12 text-center text-blue-800/60 text-sm py-6">
-        <p>© 2024 NLS Assistant. Built with Gemini API & React.</p>
-        <p className="mt-2 font-bold text-blue-800">
-          ĐĂNG KÝ KHOÁ HỌC THỰC CHIẾN VIẾT SKKN, TẠO APP DẠY HỌC, TẠO MÔ PHỎNG TRỰC QUAN CHỈ VỚI 1 CÂU LỆNH: <a href="https://forms.gle/d7AmcT9MTyGy7bJd8" target="_blank" rel="noopener noreferrer" className="underline hover:text-blue-600">https://forms.gle/d7AmcT9MTyGy7bJd8</a>
-        </p>
+        <p>© 2024 Bản quyền thuộc về Thầy giáo Đinh Văn Thành</p>
         <div className="mt-3 space-y-1 text-blue-800 font-medium">
           <p>Mọi thông tin vui lòng liên hệ:</p>
-          <p>
-            FB: <a href="https://www.facebook.com/tranhoaithanhvicko/" target="_blank" rel="noopener noreferrer" className="underline hover:text-blue-600">https://www.facebook.com/tranhoaithanhvicko/</a>
-          </p>
-          <p>Zalo: 0348296773</p>
+          <p>Zalo/Tel: 0915.213717 (Thầy giáo Đinh Văn Thành)</p>
         </div>
       </footer>
 

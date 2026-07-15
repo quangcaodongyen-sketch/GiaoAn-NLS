@@ -104,7 +104,7 @@ const Login: React.FC = () => {
 
       <div className="mt-8 text-center flex justify-center items-center space-x-2 text-slate-600 text-sm">
          <Phone size={16} />
-         <span>Hỗ trợ: Tel/Zalo 0915.213717 (Mr. Thành)</span>
+         <span>Hỗ trợ: Tel/Zalo 0915.213717 (Thầy giáo Đinh Văn Thành)</span>
       </div>
     </div>
   );

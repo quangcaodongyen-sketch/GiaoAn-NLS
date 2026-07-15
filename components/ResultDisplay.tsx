@@ -323,7 +323,8 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, original
 
   // Helper: Parse text - CHỈ MÀU ĐỎ
   const parseTextWithFormatting = (text: string): TextRun[] => {
-    const parts = text.split(/(\*\*.*?\*\*|\*.*?\*|<u>.*?<\/u>|<red>.*?<\/red>)/g);
+    const cleanText = text.replace(/<br\s*\/?>/gi, '');
+    const parts = cleanText.split(/(\*\*.*?\*\*|\*.*?\*|<u>.*?<\/u>|<red>.*?<\/red>)/g);
     return parts.map(part => {
       if (part.startsWith('**') && part.endsWith('**')) {
         return new TextRun({ text: part.slice(2, -2), bold: true });
@@ -382,6 +383,7 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, original
 
       let isRedContent = trimmed.includes('<red>') || trimmed.includes('</red>');
       processedLine = processedLine.replace(/<\/?red>/g, '');
+      processedLine = processedLine.replace(/<br\s*\/?>/gi, '');
 
       const content = escapeXml(processedLine);
 

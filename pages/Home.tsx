@@ -66,7 +66,7 @@ const Home: React.FC = () => {
           <p className="text-slate-500 text-sm mb-4 md:mb-0">© 2024 NLS Assistant. Built for Educators.</p>
           <div className="flex items-center space-x-2 text-blue-700 font-medium bg-blue-50 px-4 py-2 rounded-full shadow-sm">
             <Phone size={18} />
-            <span>Liên hệ hỗ trợ: Tel/Zalo 0915.213717 (Mr. Thành)</span>
+            <span>Liên hệ hỗ trợ: Tel/Zalo 0915.213717 (Thầy giáo Đinh Văn Thành)</span>
           </div>
         </div>
       </footer>

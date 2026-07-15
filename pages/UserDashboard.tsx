@@ -67,7 +67,7 @@ const UserDashboard: React.FC = () => {
               <div>
                 <h3 className="font-bold text-red-800">Tài khoản dùng thử/VIP đã hết hạn</h3>
                 <p className="text-red-700 text-sm mt-1">
-                  Vui lòng liên hệ: <strong>Tel/Zalo 0915.213717 (Mr. Thành)</strong> để được kích hoạt VIP.
+                  Vui lòng liên hệ: <strong>Tel/Zalo 0915.213717 (Thầy giáo Đinh Văn Thành)</strong> để được kích hoạt VIP.
                 </p>
               </div>
             </div>
@@ -121,7 +121,7 @@ const UserDashboard: React.FC = () => {
       
       <footer className="text-center py-6 mt-12 text-slate-500 text-sm flex justify-center items-center space-x-2">
          <Phone size={16} />
-         <span>Liên hệ hỗ trợ: Tel/Zalo 0915.213717 (Mr. Thành)</span>
+         <span>Liên hệ hỗ trợ: Tel/Zalo 0915.213717 (Thầy giáo Đinh Văn Thành)</span>
       </footer>
     </div>
   );
