@@ -395,12 +395,11 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, original
   // Xây dựng pPr cho đoạn NLS:
   //   - First-line indent: 720 twips = 1.27 cm (theo chuẩn Word)
   //   - Dãn dòng (spacing): kế thừa từ đoạn gốc
-  //   - Căn lề: kế thừa từ đoạn gốc (mặc định justify)
+  //   - Căn lề: LUÔN căn đều 2 bên (Justify) - w:jc val="both"
   const buildNlsPPr = (sourceParagraphXml: string): string => {
     const spacing = extractSpacingFromParagraph(sourceParagraphXml);
-    // Giữ căn lề từ nguồn nếu có
-    const jcMatch = sourceParagraphXml.match(/<w:jc\s[^>]*\/>/);
-    const jc = jcMatch ? jcMatch[0] : '';
+    // Luôn áp dụng căn đều 2 bên (Justify) cho tất cả đoạn NLS
+    const jc = '<w:jc w:val="both"/>';
     // First-line indent 1.27cm = 720 twips (1 twip = 1/1440 inch; 1.27cm ≈ 0.5 inch = 720 twips)
     return `<w:pPr><w:ind w:firstLine="720"/>${spacing}${jc}</w:pPr>`;
   };
