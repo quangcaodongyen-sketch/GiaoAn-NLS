@@ -352,10 +352,37 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, original
       .replace(/'/g, '&apos;');
   };
 
-  // Chuyển Markdown sang Word XML - CHỈ MÀU ĐỎ
-  const convertMarkdownToWordXml = (markdown: string): string => {
+  // Trích xuất pPr (paragraph properties) từ một đoạn XML paragraph
+  // Dùng để kế thừa font, cỡ chữ, indent từ đoạn văn gốc
+  const extractPPr = (paragraphXml: string): string => {
+    const match = paragraphXml.match(/<w:pPr>[\s\S]*?<\/w:pPr>/);
+    return match ? match[0] : '';
+  };
+
+  // Trích xuất rPr (run properties: font, size) từ một đoạn XML paragraph
+  // Bỏ qua các thuộc tính màu sắc vì ta sẽ đặt màu đỏ
+  const extractRPrForNls = (paragraphXml: string): string => {
+    // Lấy rPr từ run đầu tiên trong paragraph
+    const rPrMatch = paragraphXml.match(/<w:rPr>([\s\S]*?)<\/w:rPr>/);
+    if (!rPrMatch) return '';
+    let rPrContent = rPrMatch[1];
+    // Loại bỏ các thuộc tính màu cũ để ta đặt màu đỏ (regex linh hoạt hơn)
+    rPrContent = rPrContent.replace(/<w:color\s[^>]*\/>/g, '');
+    rPrContent = rPrContent.replace(/<w:highlight\s[^>]*\/>/g, '');
+    // Thêm màu đỏ vào đầu
+    rPrContent = `<w:color w:val="FF0000"/>${rPrContent}`;
+    return `<w:rPr>${rPrContent}</w:rPr>`;
+  };
+
+  // Chuyển Markdown sang Word XML - MÀU ĐỎ + KẾ THỪA ĐỊNH DẠNG GỐC
+  // pPr: paragraph properties (font, indent, spacing) từ đoạn văn gốc tại vị trí chèn
+  // rPrBase: run properties (font name, size) từ đoạn văn gốc
+  const convertMarkdownToWordXml = (markdown: string, pPr: string = '', rPrBase: string = ''): string => {
     const lines = markdown.split('\n');
     let xml = '';
+
+    // rPr cho NLS: luôn có màu đỏ + kế thừa font/size từ đoạn gốc
+    const redRPr = rPrBase || '<w:rPr><w:color w:val="FF0000"/></w:rPr>';
 
     for (const line of lines) {
       const trimmed = line.trim();
@@ -381,24 +408,27 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, original
       // Loại bỏ thẻ <u> và </u>
       processedLine = processedLine.replace(/<\/?u>/g, '');
 
-      let isRedContent = trimmed.includes('<red>') || trimmed.includes('</red>');
+      // Tất cả nội dung NLS đều màu đỏ (kể cả dòng không có thẻ <red>)
       processedLine = processedLine.replace(/<\/?red>/g, '');
       processedLine = processedLine.replace(/<br\s*\/?>/gi, '');
 
       const content = escapeXml(processedLine);
 
-      if (isRedContent) {
-        xml += `<w:p><w:r><w:rPr><w:color w:val="FF0000"/></w:rPr><w:t>${content}</w:t></w:r></w:p>`;
-      } else {
-        xml += `<w:p><w:r><w:t>${content}</w:t></w:r></w:p>`;
-      }
+      // Tạo paragraph: pPr (indent/spacing) trong w:p, rPr màu đỏ + font trong w:r
+      // Cấu trúc OOXML đúng: <w:p><w:pPr/><w:r><w:rPr/><w:t/></w:r></w:p>
+      xml += `<w:p>${pPr}<w:r>${redRPr}<w:t xml:space="preserve">${content}</w:t></w:r></w:p>`;
     }
 
     return xml;
   };
 
   // Tìm và chèn nội dung SAU vị trí tìm thấy
-  const findAndInsertAfter = (xml: string, searchPatterns: string[], contentToInsert: string): { result: string; inserted: boolean } => {
+  // Trả về thêm pPr và rPrBase từ paragraph gốc để kế thừa định dạng
+  const findAndInsertAfter = (
+    xml: string,
+    searchPatterns: string[],
+    nlsMarkdown: string
+  ): { result: string; inserted: boolean } => {
     for (const pattern of searchPatterns) {
       const escapedPattern = pattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
@@ -407,6 +437,13 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, original
 
       const match = xml.match(regex);
       if (match) {
+        // Trích xuất định dạng từ paragraph gốc
+        const pPr = extractPPr(match[0]);
+        const rPrBase = extractRPrForNls(match[0]);
+
+        // Tạo XML NLS với định dạng kế thừa từ paragraph gốc
+        const contentToInsert = convertMarkdownToWordXml(nlsMarkdown, pPr, rPrBase);
+
         const newXml = xml.replace(match[0], match[0] + contentToInsert);
         return { result: newXml, inserted: true };
       }
@@ -437,8 +474,8 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, original
 
     // Chèn từng section vào vị trí tương ứng
     for (const section of sections) {
-      const nlsXml = convertMarkdownToWordXml(section.content);
-      const { result, inserted } = findAndInsertAfter(documentXml, section.searchPatterns, nlsXml);
+      // findAndInsertAfter bây giờ tự trích xuất pPr/rPr từ paragraph gốc và tạo XML
+      const { result, inserted } = findAndInsertAfter(documentXml, section.searchPatterns, section.content);
 
       if (inserted) {
         documentXml = result;
@@ -450,7 +487,7 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ result, loading, original
       }
     }
 
-    // Nếu có section không tìm được vị trí, chèn vào cuối
+    // Nếu có section không tìm được vị trí, chèn vào cuối (không có pPr kế thừa)
     if (notInsertedSections.length > 0) {
       let fallbackXml = `
         <w:p><w:pPr><w:pBdr><w:top w:val="single" w:sz="12" w:space="1" w:color="FF0000"/></w:pBdr></w:pPr></w:p>
